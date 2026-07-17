@@ -22,9 +22,11 @@ const activityFile = join(dataDir, "activity.jsonl");
 const PAY_TO = env("WALLET_ADDRESS", "0x7F3cE1fC7599012b7da97e1e14F5D33257A6e1f4");
 const API_KEY = env("FACILITATOR_API_KEY", "");
 
-// Celo mainnet USDC (native, Circle) — EIP-3009 capable
+// Celo mainnet stablecoins — both EIP-3009 capable, both supported by the facilitator
 const USDC = "0xcebA9300f2b948710d2653dD7B07f33A8B32118C";
-const PRICE_ATOMIC = "1000"; // 0.001 USDC (6 decimals)
+// USDT has no version() on-chain; its EIP-712 domain is exactly name "Tether USD", version "1"
+const USDT = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e";
+const PRICE_ATOMIC = "1000"; // 0.001 (6 decimals, both tokens)
 
 const facilitator = new HTTPFacilitatorClient({
   url: "https://api.x402.celo.org",
@@ -46,17 +48,30 @@ app.use(
   paymentMiddleware(
     {
       "POST /clean": {
-        accepts: {
-          scheme: "exact",
-          network: "eip155:42220",
-          payTo: PAY_TO,
-          price: {
-            amount: PRICE_ATOMIC,
-            asset: USDC,
-            extra: { name: "USDC", version: "2" },
+        accepts: [
+          {
+            scheme: "exact",
+            network: "eip155:42220",
+            payTo: PAY_TO,
+            price: {
+              amount: PRICE_ATOMIC,
+              asset: USDT,
+              extra: { name: "Tether USD", version: "1" },
+            },
+            maxTimeoutSeconds: 120,
           },
-          maxTimeoutSeconds: 120,
-        },
+          {
+            scheme: "exact",
+            network: "eip155:42220",
+            payTo: PAY_TO,
+            price: {
+              amount: PRICE_ATOMIC,
+              asset: USDC,
+              extra: { name: "USDC", version: "2" },
+            },
+            maxTimeoutSeconds: 120,
+          },
+        ],
         description:
           "Clean402 — deterministic text/transcript cleaner. POST { text, mode?: 'text'|'transcript', stripSpeakers?: boolean }",
         mimeType: "application/json",
