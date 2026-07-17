@@ -113,3 +113,6 @@ app.get("/feed", (_req, res) => {
   } catch { /* best-effort */ }
   res.json({ recent: lines.reverse(), totalServed: served });
 });
+
+// Vercel's Express auto-detection requires the app as default export
+export default app;
