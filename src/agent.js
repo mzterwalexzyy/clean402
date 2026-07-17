@@ -22,6 +22,7 @@ const LOW_BALANCE_USDC = 0.05; // warn threshold, in USDC
 
 const HN = "https://hacker-news.firebaseio.com/v0";
 const USDC = "0xcebA9300f2b948710d2653dD7B07f33A8B32118C";
+const USDT = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e";
 const chain = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
 
 const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
@@ -54,10 +55,12 @@ async function nextItems(count) {
 }
 
 async function usdcBalance() {
-  const bal = await chain.readContract({
-    address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [account.address],
-  });
-  return Number(formatUnits(bal, 6));
+  // spendable stablecoin balance: USDT + USDC (both accepted by the paid endpoint)
+  const [t, c] = await Promise.all([
+    chain.readContract({ address: USDT, abi: erc20Abi, functionName: "balanceOf", args: [account.address] }),
+    chain.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [account.address] }),
+  ]);
+  return Number(formatUnits(t + c, 6));
 }
 
 function log(entry) {
