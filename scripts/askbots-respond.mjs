@@ -8,19 +8,29 @@ const [projectId, answersFile] = process.argv.slice(2);
 const answers = JSON.parse(readFileSync(answersFile, "utf8"));
 const base = "https://askbots.ai/api";
 
-// evaluate arithmetic like "847293 * 193847 + 582910384" with BigInt, left-to-right
-// honoring * and / precedence over + and -
+// evaluate arithmetic like "(337152 + 669158) * 981899" with BigInt —
+// recursive descent, honoring parentheses and * / precedence
 function evalExpr(s) {
-  const tokens = s.replace(/[^\d+\-*/ ]/g, "").trim().split(/\s*([+\-*/])\s*/).filter(Boolean);
-  // first pass: * and /
-  const stack = [BigInt(tokens[0])];
-  for (let i = 1; i < tokens.length; i += 2) {
-    const op = tokens[i], n = BigInt(tokens[i + 1]);
-    if (op === "*") stack[stack.length - 1] *= n;
-    else if (op === "/") stack[stack.length - 1] /= n;
-    else stack.push(op === "-" ? -n : n);
+  const tokens = s.match(/\d+|[+\-*/()]/g) ?? [];
+  let i = 0;
+  const peek = () => tokens[i];
+  const next = () => tokens[i++];
+  function atom() {
+    if (peek() === "(") { next(); const v = expr(); next(); /* ")" */ return v; }
+    if (peek() === "-") { next(); return -atom(); }
+    return BigInt(next());
   }
-  return stack.reduce((a, b) => a + b, 0n);
+  function term() {
+    let v = atom();
+    while (peek() === "*" || peek() === "/") v = next() === "*" ? v * atom() : v / atom();
+    return v;
+  }
+  function expr() {
+    let v = term();
+    while (peek() === "+" || peek() === "-") v = next() === "+" ? v + term() : v - term();
+    return v;
+  }
+  return expr();
 }
 
 const res = await fetch(`${base}/projects/${projectId}/respond`, {

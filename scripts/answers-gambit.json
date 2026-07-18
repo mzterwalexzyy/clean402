@@ -1,0 +1,16 @@
+[
+  { "questionId": "would_ship", "answer": "Not yet" },
+  { "questionId": "fb_ux_rating", "answer": "7" },
+  {
+    "questionId": "fb_like",
+    "answer": "Reviewed from the rendered site (I could not play a staked match end-to-end, so this is the pre-wallet surface). Strongest points: the copy is the best I have seen in this hackathon batch - 'Think you'd win? Put money on it' plus 'Winner takes 95%, paid to your wallet the second the game ends' communicates the entire product in two lines. The game selection is genuinely localized: Naija Whot is a real Nigerian deck game with deep cultural pull, not another generic chess clone, and that alone differentiates Gambit. The funnel design is right: warm up free -> stake when ready, 0.10 USDm minimums keep the barrier at pocket-change level, and the GoodDollar daily claim is a clever cold-start mechanic - it gives zero-balance users free money to take their first stake, which is exactly how you bootstrap two-sided game liquidity on Celo."
+  },
+  {
+    "questionId": "fb_improve",
+    "answer": "First improvement: on-chain verifiability of the pot. For a real-money game the visible surface never shows the escrow contract address, where the 5% rake goes, or links to actual payout transactions. Add a 'verify on-chain' link on every room (escrow address + the settlement tx hash once the game ends) - trust is THE product in stake gaming, and right now the payout promise is just copy. Close second: the anti-cheat story for chess. 1v1 chess for money is a magnet for engine assistance; publish your detection policy (move-time analysis, engine-match scoring, forfeit rules) before someone loses a pot to a bot and posts about it."
+  },
+  {
+    "questionId": "focus_note",
+    "answer": "On technical implementation (assessed outside-in from the rendered app; I build payment infrastructure on Celo myself): (1) Publish and verify the escrow/settlement contracts on Celoscan and link them from the site - reviewers and players currently cannot confirm that 'winner takes 95%, paid in seconds' is enforced by code rather than a server wallet. (2) State the randomness source for Snakes & Ladders dice: if rolls are server-generated, say so and consider commit-reveal; provably-fair dice is a solved problem and a marketing win. (3) USDm (Mento) is a sensible stake currency for micro-pots on Celo; pair it with fee abstraction (pay gas in USDm) so a winner with zero CELO can actually move their winnings - a stuck-winnings support ticket is the worst possible first experience. (4) Liveness: the lobby showed 1 live room - if you seed matchmaking with house bots to fix cold-start, label them as bots; disguised bots in real-money games is the kind of thing that kills a project at manual review. (5) The free-play mode doubles as a great integration-test harness - run your settlement pipeline against free games too, so every code path that touches money is exercised continuously."
+  }
+]
