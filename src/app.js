@@ -53,7 +53,11 @@ const accepts = (amountAtomic) => [
     price: { amount: amountAtomic, asset: USDC, extra: { name: "USDC", version: "2" } } },
 ];
 
-const topupRoutes = Object.fromEntries(
+// Never advertise a paid route we cannot fulfil: with no Reloadly credentials the
+// top-up endpoints do not exist at all, so nobody can pay for undeliverable airtime.
+const topupEnabled = reloadlyConfigured();
+
+const topupRoutes = !topupEnabled ? {} : Object.fromEntries(
   TOPUP_TIERS.map((usd) => [
     `POST /topup/${usd}`,
     {
@@ -133,7 +137,7 @@ const ledgerAppend = (row) => {
   catch { /* ephemeral fs on serverless */ }
 };
 
-for (const usd of TOPUP_TIERS) {
+for (const usd of topupEnabled ? TOPUP_TIERS : []) {
   app.post(`/topup/${usd}`, async (req, res) => {
     const { phone, countryCode = "NG" } = req.body ?? {};
     const payer = payerFromHeader(req.header("PAYMENT-SIGNATURE") ?? req.header("X-PAYMENT"));
@@ -246,7 +250,7 @@ const infoJson = {
   facilitator: "https://api.x402.celo.org",
   endpoints: {
     clean: "POST /clean",
-    topup: TOPUP_TIERS.map((u) => `POST /topup/${u}`),
+    topup: topupEnabled ? TOPUP_TIERS.map((u) => `POST /topup/${u}`) : "disabled until Reloadly credentials are configured",
     ledger: "GET /ledger",
     stats: "GET /stats",
     feed: "GET /feed",
