@@ -1,0 +1,21 @@
+[
+  { "questionId": "q1", "answer": "9" },
+  {
+    "questionId": "q2",
+    "answer": "Disclosure first: I am building a competing entry in the same hackathon tracks, so I reviewed this as an engineer reading the code, not as a neutral party. Very little was confusing. The README states the five money actions, the heartbeat model and the custody position in the first screen, and the skill directories (remitroute-core, mento-fx, fee-abstraction, x402-service, erc8004, transfer) map cleanly onto those claims, so I could predict where a given behaviour lived before opening the file. Three friction points. First, the celo-builders skill is vendored three times, under .agents/, .claude/ and .kiro/, which triples the diff noise and leaves three copies to drift; keep one and symlink or document why the duplicates exist. Second, the custody story is stated in prose ('keys encrypted at rest') but the key hierarchy is not documented anywhere I could find: rotate-encryption-key.ts implies a KEK, yet a reader cannot tell from the repo whether that key lives in the same .env on the same host as the database, which is the difference between meaningful encryption and a speed bump. A short THREAT-MODEL.md answering 'what does an attacker with root on the box get' would resolve it. Third, RUNBOOK.md and the systemd units assume a specific host layout (/root/remitroute, an nvm path pinned to node v22.22.2); that is fine for one operator but hard-codes the deployment into scripts that also perform live edits to .env and unit files."
+  },
+  { "questionId": "q3", "answer": "Yes clearly" },
+  {
+    "questionId": "q4",
+    "answer": ["Setup/run instructions", "Env var docs", "Tests", "Meaningful code comments", "Celo integration clearly isolated", "Deployment steps"]
+  },
+  {
+    "questionId": "q5",
+    "answer": "Three things, in order of severity. (1) Custody is the whole risk surface. This is a custodial automation wallet: the service holds user keys encrypted at rest and signs recurring moves without per-transaction consent. That is a defensible product decision for MiniPay users and you are upfront about it, but it means one host compromise or one leaked master key is a total loss of every user's balance, and the repo shows no audit, no HSM or KMS boundary, and no split between the signing service and the web app that faces the internet. Anyone building on this should assume the encryption-at-rest claim is only as strong as wherever the KEK lives, and that is currently undocumented. (2) The idempotency guarantee is database-shaped. duplicateExecutionCount and the schedule status column are what stand between a heartbeat and a double send, so a restore from backup, a replica promoted mid-run, or two engines briefly running against the same database can replay real money movements. If there is no unique constraint or advisory lock keying execution on (schedule_id, period), add one; the caps in checkCaps limit the blast radius but do not prevent the duplicate. Credit where due: verify-safety.ts actively asserts caps, gas floor, idempotency and the circuit breaker, restoring prior state after the halt/resume self-test, which is a higher standard of safety evidence than anything else I have reviewed in this batch. (3) A veracity note you have already half-solved yourself: openclaw/deploy/revert-after-deadline.sh carries the comment 'so the agent stops farming on its own', and it restores a 2-minute heartbeat to 20 minutes, drops the caps back to 2 and 5, and pauses the remittance schedules once the window closes. Automating your own de-escalation is genuinely more honest than most, but any judge or integrator who greps the repo will read the word 'farming' next to your own leaderboard numbers, and it invites them to discount all of your activity including the real part. The fix is not to hide it: publish the split. Emit a flag on each execution distinguishing user-initiated demand from agent-generated activity, and expose the two counts separately in the dashboard, so your genuine usage survives the scrutiny that the script otherwise attracts."
+  },
+  {
+    "questionId": "q6",
+    "answer": ["Cheap / sub-cent fees", "Fee abstraction (pay gas in stablecoins)", "Local & regional stablecoins", "Positions Celo as the leading chain for agents"]
+  },
+  { "questionId": "q7", "answer": "Some concerns" }
+]

@@ -6,6 +6,7 @@ import { createPublicClient, createWalletClient, http, erc20Abi, formatUnits, pa
 import { celo } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { toDataSuffix } from "@celo/attribution-tags";
+import { feeCurrencyGas } from "./celoGas.js";
 import { env } from "./env.js";
 
 const TOKENS = {
@@ -14,7 +15,14 @@ const TOKENS = {
 };
 // Celo FeeCurrencyDirectory entry for Tether USD — lets USDT pay for gas
 const USDT_FEE_CURRENCY = "0x0E2A3e05bc9A16F5292A6170456A710cb89C6f72";
-const GAS_BUFFER = parseUnits("0.005", 6); // keep back for fee-abstraction gas
+// Celo debits the FULL max fee (gas limit x price) in the fee currency up front, not the
+// actual usage, so a thin fixed buffer under-reserves and the transfer reverts with
+// "amount exceeds balance". Reserve the larger of 0.03 USDT or 20% of the balance.
+const MIN_GAS_RESERVE = parseUnits("0.03", 6);
+const gasReserve = (balance) => {
+  const proportional = balance / 5n;
+  return proportional > MIN_GAS_RESERVE ? proportional : MIN_GAS_RESERVE;
+};
 
 const TAG = env("ATTRIBUTION_TAG");
 const MIN_SWEEP = parseUnits(env("MIN_SWEEP_USDC", "0.02"), 6);
@@ -29,8 +37,9 @@ for (const [symbol, token] of Object.entries(TOKENS)) {
   const bal = await pub.readContract({
     address: token, abi: erc20Abi, functionName: "balanceOf", args: [service.address],
   });
-  // keep a gas buffer only in USDT (the fee token)
-  const sweepable = symbol === "USDT" ? (bal > GAS_BUFFER ? bal - GAS_BUFFER : 0n) : bal;
+  // keep a gas reserve only in USDT (the fee token)
+  const reserve = gasReserve(bal);
+  const sweepable = symbol === "USDT" ? (bal > reserve ? bal - reserve : 0n) : bal;
   if (sweepable < MIN_SWEEP) {
     console.log(`${symbol}: nothing to sweep (${formatUnits(bal, 6)} held, ${formatUnits(sweepable, 6)} sweepable)`);
     continue;
@@ -42,7 +51,7 @@ for (const [symbol, token] of Object.entries(TOKENS)) {
     functionName: "transfer",
     args: [payerAddress, sweepable],
     dataSuffix: toDataSuffix(TAG),
-    feeCurrency: USDT_FEE_CURRENCY,
+    ...(await feeCurrencyGas(pub, USDT_FEE_CURRENCY)),
   });
   const receipt = await pub.waitForTransactionReceipt({ hash });
   console.log(`${symbol}: ${receipt.status} | https://celoscan.io/tx/${hash}`);

@@ -4,6 +4,7 @@ import { createPublicClient, createWalletClient, http, erc20Abi } from "viem";
 import { celo } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { toDataSuffix } from "@celo/attribution-tags";
+import { feeCurrencyGas } from "./celoGas.js";
 import { env } from "./env.js";
 
 const USDT = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e";
@@ -44,7 +45,7 @@ export async function refund({ to, amountAtomic, token = USDT }) {
     functionName: "transfer",
     args: [to, amountAtomic],
     dataSuffix: toDataSuffix(env("ATTRIBUTION_TAG")),
-    feeCurrency: USDT_FEE_CURRENCY,
+    ...(await feeCurrencyGas(pub, USDT_FEE_CURRENCY)),
   });
   return hash;
 }

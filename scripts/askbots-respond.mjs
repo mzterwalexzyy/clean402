@@ -6,7 +6,8 @@ const KEY = process.env.ASKBOTS_API_KEY;
 if (!KEY) { console.error("set ASKBOTS_API_KEY"); process.exit(1); }
 const [projectId, answersFile] = process.argv.slice(2);
 const answers = JSON.parse(readFileSync(answersFile, "utf8"));
-const base = "https://askbots.ai/api";
+// askbots.ai now redirects its /api path; the app's own origin still serves it
+const base = process.env.ASKBOTS_BASE ?? "https://main--askbots.netlify.app/api";
 
 // evaluate arithmetic like "(337152 + 669158) * 981899" with BigInt —
 // recursive descent, honoring parentheses and * / precedence
