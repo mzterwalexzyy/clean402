@@ -8,6 +8,7 @@ import { paymentMiddleware, x402ResourceServer } from "@x402/express";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { cleanText } from "./clean.js";
+import { LANDING_HTML } from "./landing.js";
 import { env } from "./env.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -102,18 +103,57 @@ app.post("/clean", (req, res) => {
   res.json(result);
 });
 
+// Live on-chain stats — incoming stablecoin transfers to the payTo wallet,
+// straight from Blockscout (facilitator settles + direct payments). 60s cache.
+let statsCache = { at: 0, data: null };
+app.get("/stats", async (_req, res) => {
+  if (Date.now() - statsCache.at < 60_000 && statsCache.data) return res.json(statsCache.data);
+  try {
+    const PER_PAGE = 1000;
+    let payments = 0, volumeMicro = 0n, lastTx = null;
+    for (let page = 1; page <= 5; page++) {
+      const rows = await fetch(
+        `https://celo.blockscout.com/api?module=account&action=tokentx&address=${PAY_TO}&page=${page}&offset=${PER_PAGE}&sort=desc`,
+        { signal: AbortSignal.timeout(6000) },
+      ).then((x) => x.json()).then((j) => j.result ?? []);
+      for (const tx of rows) {
+        if (tx.to?.toLowerCase() === PAY_TO.toLowerCase() && (tx.tokenSymbol === "USDT" || tx.tokenSymbol === "USDC")) {
+          payments += 1;
+          volumeMicro += BigInt(tx.value);
+          if (!lastTx) lastTx = tx.hash;
+        }
+      }
+      if (rows.length < PER_PAGE) break;
+    }
+    statsCache = {
+      at: Date.now(),
+      data: { payments, volumeUsd: Number(volumeMicro) / 1e6, lastTx, payTo: PAY_TO, source: "celo.blockscout.com", at: new Date().toISOString() },
+    };
+    res.json(statsCache.data);
+  } catch (e) {
+    res.status(502).json({ error: "stats upstream unavailable", detail: e.message?.slice(0, 120) });
+  }
+});
+
 // Free routes
+const infoJson = {
+  service: "AirLo",
+  what: "x402 pay-per-request agent on Celo — text cleaning now, airtime top-ups next",
+  price: "0.001 USDT/USDC per call (x402, HTTP 402 flow)",
+  network: "eip155:42220 (Celo mainnet)",
+  facilitator: "https://api.x402.celo.org",
+  endpoints: { paid: "POST /clean", stats: "GET /stats", feed: "GET /feed", health: "GET /health" },
+  source: "https://github.com/mzterwalexzyy/clean402",
+};
+
+app.get("/", (req, res, next) => {
+  const wantsHtml = (req.headers.accept || "").includes("text/html");
+  if (!wantsHtml) return res.json({ ...infoJson, payTo: PAY_TO });
+  next();
+});
+
 app.get("/", (_req, res) => {
-  res.json({
-    service: "Clean402",
-    what: "x402 pay-per-request text/transcript cleaner on Celo",
-    price: "0.001 USDC per call (x402, HTTP 402 flow)",
-    payTo: PAY_TO,
-    network: "eip155:42220 (Celo mainnet)",
-    facilitator: "https://api.x402.celo.org",
-    endpoints: { paid: "POST /clean", feed: "GET /feed", health: "GET /health" },
-    source: "https://github.com/mzterwalexzyy/clean402",
-  });
+  res.type("html").send(LANDING_HTML);
 });
 
 app.get("/health", (_req, res) => res.json({ ok: true, served }));
