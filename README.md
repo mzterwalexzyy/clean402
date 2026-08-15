@@ -54,9 +54,29 @@ node src/pay-once.js    # single end-to-end paid request (prints settle tx)
 | Route | Price | Description |
 |---|---|---|
 | `POST /clean` | 0.001 USDT/USDC (x402) | `{ text, mode?: "text"\|"transcript" }` → cleaned text + stats |
+| `POST /topup/{1,2,5}` | $1 / $2 / $5 (x402) | `{ phone, countryCode?: "NG" }` → airtime or data delivered, receipt returned |
+| `GET /ledger` | free | every top-up: Celo payment, Reloadly delivery, refund status |
+| `GET /stats` | free | live payment count and settled value, read from Blockscout |
 | `GET /feed` | free | recent jobs (public proof of real work) |
 | `GET /health` | free | liveness |
-| `GET /` | free | service info |
+| `GET /` | free | landing page for browsers, service JSON for machines |
+
+### What is live, and what is not
+
+The payment rail is finished: 100+ real settlements on Celo mainnet, both stablecoins,
+gasless for the buyer. The airtime lane is written and gated. The `/topup` routes only
+exist when `RELOADLY_CLIENT_ID` and `RELOADLY_CLIENT_SECRET` are configured, so the
+server can never take payment for airtime it cannot deliver. Until a real phone has
+been credited, both this README and the landing page say so.
+
+### Refund design
+
+Fulfilment happens after settlement, so any failure past that point owes the buyer a
+refund. When a top-up fails at any stage (missing configuration, operator detection,
+delivery), the server recovers the buyer's address from their x402 payment header and
+sends the money straight back from the service wallet, carrying the ERC-8021
+attribution tag, with gas paid in USDT through Celo fee abstraction. The outcome,
+including a refund that itself fails, is written to the public `/ledger`.
 
 ## Stack
 
